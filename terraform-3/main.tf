@@ -1,62 +1,62 @@
 // 1. create virtual private cloud
-resource "aws_vpc" "main_vpc" {
+resource "aws_vpc" "hockey_vpc" {
   cidr_block = "10.0.0.0/16" //classless inter-domain routing
 
   tags = {
-    Name = "main-production"
+    Name = "hockey-production"
   }
 }
 
 // 2. create internet gateway
-resource "aws_internet_gateway" "main_igw" {
-  vpc_id = aws_vpc.main_vpc.id
+resource "aws_internet_gateway" "hockey_igw" {
+  vpc_id = aws_vpc.hockey_vpc.id
 
   tags = {
-    Name = "main-igw"
+    Name = "hockey-igw"
   }
 }
 
 // 3. create custom route table
-resource "aws_route_table" "main_rt" {
-  vpc_id = aws_vpc.main_vpc.id
+resource "aws_route_table" "hockey_rt" {
+  vpc_id = aws_vpc.hockey_vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main_igw.id
+    gateway_id = aws_internet_gateway.hockey_igw.id
   }
 
   route {
     ipv6_cidr_block = "::/0"
-    gateway_id      = aws_internet_gateway.main_igw.id
+    gateway_id      = aws_internet_gateway.hockey_igw.id
   }
 
   tags = {
-    Name = "main-rt"
+    Name = "hockey-rt"
   }
 }
 
 // 4. configure subnet
-resource "aws_subnet" "main_subnet" {
-  vpc_id            = aws_vpc.main_vpc.id
+resource "aws_subnet" "hockey_subnet" {
+  vpc_id            = aws_vpc.hockey_vpc.id
   cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-west-2a"
+  availability_zone = "us-west-1a"
 
   tags = {
-    Name = "main-subnet"
+    Name = "hockey-subnet"
   }
 }
 
 // 5. associate subnet with route table
-resource "aws_route_table_association" "main_assoc" {
-  subnet_id      = aws_subnet.main_subnet.id
-  route_table_id = aws_route_table.main_rt.id
+resource "aws_route_table_association" "hockey_assoc" {
+  subnet_id      = aws_subnet.hockey_subnet.id
+  route_table_id = aws_route_table.hockey_rt.id
 }
 
 // 6. create security group
-resource "aws_security_group" "main_sg" {
+resource "aws_security_group" "hockey_sg" {
   name        = "allow_web_traffic"
   description = "allow web inbound traffic"
-  vpc_id      = aws_vpc.main_vpc.id
+  vpc_id      = aws_vpc.hockey_vpc.id
 
   ingress {
     description = "HTTPS"
@@ -90,39 +90,44 @@ resource "aws_security_group" "main_sg" {
   }
 
   tags = {
-    Name = "allow_web"
+    Name = "allow_web_hockey"
   }
 }
 
 // 7. create a network interface
-resource "aws_network_interface" "main_nic" {
-  subnet_id       = aws_subnet.main_subnet.id
+resource "aws_network_interface" "hockey_nic" {
+  subnet_id       = aws_subnet.hockey_subnet.id
   private_ips     = ["10.0.1.50"]
-  security_groups = [aws_security_group.main_sg.id]
+  security_groups = [aws_security_group.hockey_sg.id]
 }
 
 // 8. assign an elastic IP to the network interface
 resource "aws_eip" "one" {
   vpc                       = true
-  network_interface         = aws_network_interface.main_nic.id
+  network_interface         = aws_network_interface.hockey_nic.id
   associate_with_private_ip = "10.0.1.50"
-  depends_on                = [aws_internet_gateway.main_igw]
+  depends_on                = [aws_internet_gateway.hockey_igw]
+}
+
+resource "aws_key_pair" "hockey_auth" {
+  key_name   = "hockey-key"
+  public_key = file("~/.ssh/hockey-key.pub")
 }
 
 // 9. create Ubuntu server (Elastic Compute Cloud instance (EC2))& install/enable apache2
-resource "aws_instance" "main_server" {
-  ami               = "ami-0b152cfd354c4c7a4" // Amazon Machine Image (Ubuntu 18.04)
+resource "aws_instance" "hockey_server" {
+  ami               = "ami-067f8db0a5c2309c0" // Amazon Machine Image (Ubuntu 18.04)
   instance_type     = "t2.micro"              // type of server
-  availability_zone = "us-west-2a"
-  key_name          = "main-key"
+  availability_zone = "us-west-1a"
+  key_name          = "hockey-key"
   user_data         = file("userdata.tpl")
 
   network_interface {
     device_index         = 0
-    network_interface_id = aws_network_interface.main_nic.id
+    network_interface_id = aws_network_interface.hockey_nic.id
   }
 
   tags = {
-    Name = "main-server"
+    Name = "hockey-server"
   }
 }
