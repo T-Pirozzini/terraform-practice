@@ -111,7 +111,7 @@ resource "aws_eip" "one" {
 
 resource "aws_key_pair" "hockey_auth" {
   key_name   = "hockey-key"
-  public_key = file("~/.ssh/hockey-key.pub")
+  public_key = file("~/.ssh/hockeykey")
 }
 
 // 9. create Ubuntu server (Elastic Compute Cloud instance (EC2))& install/enable apache2

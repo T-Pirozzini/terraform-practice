@@ -1,41 +1,39 @@
 terraform {
   required_providers {
-     google = {
-      source = "hashicorp/google"
-      version = "~>3.0"
-     }
+    google = {
+      source  = "hashicorp/google"
+      version = "3.5.0"
+    }
   }
 }
 
-variable "gcp_region" {
-  type = string
-  description = "Region to use for GCP provider"
-  default = "us-central1"
-}
-
-variable "gcp_project" {
-  type = string
-  description = "Project to use for this config"  
-}
-
 provider "google" {
-  region = var.gcp_region
-  project = var.gcp_project
+  credentials = file("C:\\Users\\tpiro\\Documents\\programming\\aws\\terraform-gcp-build-d8b5babcf7d5.json")
+
+  project = "terraform-gcp-build"
+  region  = "us-central1"
+  zone    = "us-central1-c"
 }
 
-data "google_compute_zones" "availability_zones" {
-  
+resource "google_compute_network" "vpc_network" {
+  name = "terraform-network"
 }
 
-resource "google_compute_address" "static" {
-  name = "apache"
+resource "google_compute_firewall" "rules" {
+  name    = "rules"
+  network = google_compute_network.vpc_network.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
+  }
+
+  target_tags = ["rules"]
+
 }
 
-resource "google_compute_instance" "apache" {
-  name = "apache"
-  zone = data.google_compute_zones.availability_zones.names[0]
-  tags = ["allow-http"]
-
+resource "google_compute_instance" "vm_instance" {
+  name         = "terraform-instance"
   machine_type = "e2-micro"
 
   boot_disk {
@@ -45,31 +43,13 @@ resource "google_compute_instance" "apache" {
   }
 
   network_interface {
-    network = "default"
-
+    network = google_compute_network.vpc_network.name
     access_config {
-      nat_ip = google_compute_address.static.address
     }
   }
 
-  # metadata_startup_script = file("startup_script.sh")
+  tags = ["rules"]
 }
 
-resource "google_compute_firewall" "allow_http" {
-  name = "allow-http-rule"
-  network = "default"
 
-  allow {
-    ports = ["80"]
-    protocol = "tcp"
-  }
-
-  target_tags = ["allow-http"]
-
-  priority = 1000
-}
-
-output "public_ip_address" {
-  value = google_compute_address.static.address
-}
 
